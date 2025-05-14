@@ -5,7 +5,7 @@
 ## Übersicht
 
 *   **VM:** ZDay
-*   **Plattform:** HackMyVM / Vulnhub (im Titel erwähnt)
+*   **Plattform:** (https://hackmyvm.eu/machines/machine.php?vm=Zday)
 *   **Schwierigkeit:** Hard (im Titel erwähnt, obwohl der ursprüngliche Text "Medium" anzeigte, wurde dies im VM-Namen korrigiert)
 *   **Autor der VM:** DarkSpirit
 *   **Datum des Writeups:** 11. Oktober 2022
